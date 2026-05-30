@@ -1,0 +1,6 @@
+{
+  "name": "My story AI",
+  "description": "Générateur d'histoires moderne avec lecture audio (TTS), prompts d'images artistiques et illustrations par IA.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
