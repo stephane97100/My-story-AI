@@ -88,3 +88,55 @@ export const PRESET_LOADING_STEPS = [
   "Imagination des prompts d'illustrations artistiques...",
   "Affinage littéraire final..."
 ];
+
+export interface ImageStyle {
+  id: string;
+  label: string;
+  promptAddon: string;
+  description: string;
+}
+
+export const IMAGE_STYLES: ImageStyle[] = [
+  {
+    id: "aquarelle",
+    label: "Aquarelle féérique",
+    promptAddon: "fairytale dream watercolor, soft color washes, beautiful aesthetic children book illustration",
+    description: "Tons pastels et contours estompés"
+  },
+  {
+    id: "cyberpunk",
+    label: "Art noir & Cyberpunk",
+    promptAddon: "cyberpunk dark digital concept art, glowing colorful neon highlights, futuristic dark scenery, cinematic",
+    description: "Futuriste, reflets électriques et nuit noire"
+  },
+  {
+    id: "retro_conte",
+    label: "Livre de contes rétro",
+    promptAddon: "vintage storybook hand-drawn detailed engraving, colored woodcut print style, antique fairytale texture",
+    description: "Gravures anciennes d'un vieux grimoire"
+  },
+  {
+    id: "huile",
+    label: "Peinture à l'huile",
+    promptAddon: "classical dramatic oil painting on canvas, thick textured brushstrokes, chiaroscuro lighting, museum masterpiece",
+    description: "Style classique, clair-obscur dramatique"
+  },
+  {
+    id: "cinematic_3d",
+    label: "Cinématique 3D Render",
+    promptAddon: "pixar story 3D rendered animated scene, dreamlike ambient lighting, highly detailed clay character model",
+    description: "Modélisation 3D digne d'un film d'animation"
+  },
+  {
+    id: "anime",
+    label: "Anime Ghibli",
+    promptAddon: "studio ghibli whimsical painted anime background, detailed warm environment, vintage hand-drawn cartoon",
+    description: "Atmosphère colorée, poétique et fantastique"
+  },
+  {
+    id: "gothic_vitrail",
+    label: "Vitrail de grimoire",
+    promptAddon: "medieval gothic stained glass illustration, rich glowing colors, black outline contours, ancient cathedral style",
+    description: "Chatoiement de couleurs cerclées d'un noir mat"
+  }
+];

@@ -14,6 +14,182 @@ body {
   color: #E0E0E0;
 }
 
+/* Day Mode / Light style literary overrides */
+body.light {
+  background-color: #FAF9F6 !important;
+  color: #1A1917 !important;
+}
+
+body.light h1,
+body.light h2,
+body.light h3,
+body.light h4,
+body.light h5,
+body.light h6 {
+  color: #1A1917 !important;
+}
+
+body.light p {
+  color: #2D2A26 !important;
+}
+
+body.light .text-white {
+  color: #1A1917 !important;
+}
+
+body.light .text-white\/90 {
+  color: #1A1917 !important;
+}
+
+body.light .text-white\/80 {
+  color: #2D2A26 !important;
+}
+
+body.light .text-white\/70 {
+  color: #3B3834 !important;
+}
+
+body.light .text-white\/60 {
+  color: #524F4A !important;
+}
+
+body.light .text-white\/50 {
+  color: #6E6A64 !important;
+}
+
+body.light .text-white\/40 {
+  color: #8A857E !important;
+}
+
+body.light .text-white\/30 {
+  color: #B2ACA3 !important;
+}
+
+body.light .text-white\/20 {
+  color: #D6D1C7 !important;
+}
+
+body.light .text-white\/10 {
+  color: #E6E1D8 !important;
+}
+
+/* Borders in Light Mode */
+body.light .border-white\/10,
+body.light .border-white\/15,
+body.light .border-white\/20,
+body.light .border-white\/5 {
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+body.light .border-indigo-500\/35,
+body.light .border-indigo-500\/25,
+body.light .border-indigo-500\/20 {
+  border-color: rgba(99, 102, 241, 0.35) !important;
+}
+
+/* Background replacements */
+body.light .bg-[#050505] {
+  background-color: #FAF9F6 !important;
+}
+
+body.light .bg-[#090909] {
+  background-color: #F3F1EB !important;
+}
+
+body.light .bg-[#121212] {
+  background-color: #FAF9F6 !important;
+}
+
+body.light .bg-black\/60 {
+  background-color: rgba(255, 255, 255, 0.75) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+
+body.light .bg-white\/5 {
+  background-color: rgba(0, 0, 0, 0.03) !important;
+}
+
+body.light .bg-white\/3 {
+  background-color: rgba(0, 0, 0, 0.015) !important;
+}
+
+body.light .bg-white\/10 {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+body.light .bg-black\/40 {
+  background-color: rgba(255, 255, 255, 0.8) !important;
+}
+
+body.light .bg-black\/85 {
+  background-color: rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Elegant Light Glass card dynamics */
+body.light .glass {
+  background: rgba(255, 255, 255, 0.85) !important;
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.03) !important;
+}
+
+body.light .glass:hover {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-color: rgba(0, 0, 0, 0.12) !important;
+}
+
+body.light .glass-pill {
+  background: rgba(0, 0, 0, 0.02) !important;
+  border: 1px solid rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Contrast enhancement for Indigo Accent elements in day mode */
+body.light .text-indigo-400 {
+  color: #4F46E5 !important;
+}
+
+body.light .text-indigo-300 {
+  color: #4338CA !important;
+}
+
+body.light .bg-indigo-500\/10 {
+  background-color: rgba(79, 70, 229, 0.07) !important;
+}
+
+/* Ambient glow adjustment */
+body.light .ambient-indigo {
+  opacity: 0.05 !important;
+}
+
+body.light select {
+  background-color: #FFFFFF !important;
+  color: #1A1917 !important;
+  border-color: rgba(0, 0, 0, 0.12) !important;
+}
+
+body.light select option {
+  background-color: #FFFFFF !important;
+  color: #1A1917 !important;
+}
+
+body.light input,
+body.light textarea {
+  background-color: #FFFFFF !important;
+  color: #1A1917 !important;
+  border-color: rgba(0, 0, 0, 0.12) !important;
+}
+
+body.light ::-webkit-scrollbar-track {
+  background: #FAF9F6;
+}
+
+body.light ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+body.light ::-webkit-scrollbar-thumb:hover {
+  background: rgba(79, 70, 229, 0.4);
+}
+
 /* Glassmorphism utility */
 .glass {
   background: rgba(255, 255, 255, 0.03);
