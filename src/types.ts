@@ -17,6 +17,8 @@ export interface Story {
   tone: string;
   audience: string;
   createdAt: string;
+  userId?: string;
+  isFavorite?: boolean;
   sections: Record<SectionType, StorySection>;
 }
 

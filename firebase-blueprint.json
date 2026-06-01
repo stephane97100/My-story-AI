@@ -1,0 +1,54 @@
+{
+  "entities": {
+    "Story": {
+      "title": "Story",
+      "description": "L'histoire générée par l'IA et stockée par un membre.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Identifiant unique de l'histoire"
+        },
+        "title": {
+          "type": "string",
+          "description": "Titre poétique de l'histoire"
+        },
+        "genre": {
+          "type": "string",
+          "description": "Genre littéraire"
+        },
+        "tone": {
+          "type": "string",
+          "description": "Ton ou style littéraire"
+        },
+        "audience": {
+          "type": "string",
+          "description": "Public visé"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Date de création format iso ou texte"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Identifiant de l'utilisateur Firebase Auth propriétaire"
+        },
+        "isFavorite": {
+          "type": "boolean",
+          "description": "Indique si l'histoire est dans les favoris"
+        },
+        "sections": {
+          "type": "object",
+          "description": "Les quatre chapitres structurés (introduction, developpement, climax, conclusion)"
+        }
+      },
+      "required": ["id", "title", "genre", "tone", "audience", "createdAt", "userId"]
+    }
+  },
+  "firestore": {
+    "stories/{storyId}": {
+      "schema": "Story",
+      "description": "Collection pour stocker les récits créés par chaque écrivain."
+    }
+  }
+}

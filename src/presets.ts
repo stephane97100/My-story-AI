@@ -75,6 +75,54 @@ export const PRESET_PROMPTS: PresetPrompt[] = [
     genre: "Policier",
     tone: "Sombre",
     audience: "Adolescents"
+  },
+  {
+    title: "Le Marchand de Nuages",
+    excerpt: "Un marchand d'un royaume céleste vend des nuages de différentes émotions...",
+    prompt: "Dans les hauteurs d'une cité bâtie sur les cumulonimbus, Barnabé vend des fragments de nuages pressés. Chaque flacon enferme une humeur : un nuage d'orage pour le courage, un cumulus rose pour le rire d'un bébé.",
+    genre: "Merveilleux",
+    tone: "Doux",
+    audience: "Enfants"
+  },
+  {
+    title: "L'Étoile Perdue d'Epsilon",
+    excerpt: "Une navigatrice interstellaire capte le signal mélodique d'une étoile disparue...",
+    prompt: "Astrid, pilote d'un cargo stellaire usé, intercepte une fréquence radio émanant d'un secteur présumé vide de la galaxie. Le signal est une mélodie de berceuse ancienne oubliée depuis des millénaires.",
+    genre: "Science-fiction",
+    tone: "Héroïque",
+    audience: "Adolescents"
+  },
+  {
+    title: "La Bibliothèque Oubliée",
+    excerpt: "Une immense nef cachée sous la mer recèle des livres dont l'encre s'écoule...",
+    prompt: "Un archiviste marin découvre les ruines d'une bibliothèque millénaire submergée par les eaux de l'Atlantique. Les manuscrits contiennent des histoires dont l'encre coule et dessine de nouvelles fins au gré des courants.",
+    genre: "Fantasy",
+    tone: "Poétique",
+    audience: "Adultes"
+  },
+  {
+    title: "La Légende du Vent d'Hiver",
+    excerpt: "Un esprit hivernal se lie d'amitié avec un jeune herboriste frileux...",
+    prompt: "Le Vent du Nord prend forme humaine le temps d'un hiver pour comprendre pourquoi un jeune garçon refuse de chauffer sa chaumière, préférant converser avec le givre sur ses vitres.",
+    genre: "Merveilleux",
+    tone: "Doux",
+    audience: "Enfants"
+  },
+  {
+    title: "Le Secret de l'Horloger",
+    excerpt: "Chaque coup de minuit rembobine de trois minutes l'histoire de la ville...",
+    prompt: "Une montre de poche magique permet à un vieil homme de rembobiner le cours des événements locaux de trois petites minutes pour réparer les maladresses ordinaires de ses voisins de quartier.",
+    genre: "Fantasy",
+    tone: "Humoristique",
+    audience: "Adultes"
+  },
+  {
+    title: "L'Ombre du Train de Minuit",
+    excerpt: "Un détective monte à bord d'un convoi ferroviaire fantomatique...",
+    prompt: "Le détective de renom Arthur Pendelton monte par erreur dans un train de nuit noir à vapeur qui n'apparaît sur aucun registre officiel de la gare centrale de Paris. Tous les passagers portent des masques vénitiens.",
+    genre: "Policier",
+    tone: "Sombre",
+    audience: "Adolescents"
   }
 ];
 

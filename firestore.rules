@@ -1,0 +1,66 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default-deny catch-all to prevent unauthorized path traversal
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidStory(data) {
+      return data.id is string 
+        && data.id.size() <= 128
+        && data.title is string 
+        && data.title.size() <= 200
+        && data.genre is string
+        && data.genre.size() <= 100
+        && data.tone is string
+        && data.tone.size() <= 100
+        && data.audience is string
+        && data.audience.size() <= 100
+        && data.userId == request.auth.uid
+        && (!('isFavorite' in data) || data.isFavorite is bool)
+        && ('sections' in data && data.sections is map);
+    }
+
+    match /stories/{storyId} {
+      allow get: if isSignedIn() && isOwner(existing().userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      
+      allow create: if isSignedIn() 
+        && isValidId(storyId)
+        && isValidStory(incoming())
+        && incoming().id == storyId;
+
+      allow update: if isSignedIn()
+        && isOwner(existing().userId)
+        && isValidStory(incoming())
+        && incoming().userId == existing().userId
+        && incoming().id == existing().id
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'isFavorite', 'sections', 'genre', 'tone', 'audience']);
+
+      allow delete: if isSignedIn() && isOwner(existing().userId);
+    }
+  }
+}

@@ -29,7 +29,11 @@ import {
   Copy,
   ExternalLink,
   Sun,
-  Moon
+  Moon,
+  LogIn,
+  LogOut,
+  Compass,
+  Layout
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -44,6 +48,16 @@ import {
   IMAGE_STYLES
 } from "./presets";
 import { Story, StorySection, SectionType, StoryGenerationResponse } from "./types";
+
+// Firebase Integration imports
+import { onAuthStateChanged, signOut, User as FirebaseUser } from "firebase/auth";
+import { collection, query, where, getDocs, doc, setDoc, deleteDoc } from "firebase/firestore";
+import { auth, db, handleFirestoreError, OperationType } from "./firebase";
+
+// Modular Components
+import AuthModal from "./components/AuthModal";
+import LandingPage from "./components/LandingPage";
+import MemberArea from "./components/MemberArea";
 
 export default function App() {
   // Application general states
@@ -93,6 +107,15 @@ export default function App() {
   const [isFetchingShared, setIsFetchingShared] = useState(false);
   const [sharedFetchError, setSharedFetchError] = useState<string | null>(null);
 
+  // Suggestions state
+  const [activeSuggestions, setActiveSuggestions] = useState<PresetPrompt[]>([]);
+
+  // Firebase Auth & Member Space states
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"landing" | "studio" | "member">("landing");
+
   // Theme support (mode nuit par défaut, mode jour alternatif)
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     try {
@@ -120,21 +143,70 @@ export default function App() {
   const globalAudioRef = useRef<HTMLAudioElement | null>(null);
   const speakingUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
-  // Load saved stories from localstorage on mount
+  // Listen for Firebase Auth changes
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem("mystoryai_stories");
-      if (stored) {
-        const parsed = JSON.parse(stored) as Story[];
-        if (parsed && parsed.length > 0) {
-          setSavedStories(parsed);
-          setSelectedStoryId(parsed[0].id);
-        }
-      }
-    } catch (e) {
-      console.error("Local storage load failed", e);
-    }
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setAuthLoading(false);
+    });
+    return unsubscribe;
   }, []);
+
+  // Dynamic hybrid database / localstorage fetcher
+  useEffect(() => {
+    if (authLoading) return;
+    
+    if (user) {
+      const fetchFirestoreStories = async () => {
+        try {
+          const storiesRef = collection(db, "stories");
+          const q = query(storiesRef, where("userId", "==", user.uid));
+          const querySnapshot = await getDocs(q);
+          const storiesList: Story[] = [];
+          
+          querySnapshot.forEach((docSnap) => {
+            storiesList.push(docSnap.data() as Story);
+          });
+          
+          // Sort descendingly
+          storiesList.sort((a, b) => b.id.localeCompare(a.id));
+          setSavedStories(storiesList);
+          
+          if (storiesList.length > 0) {
+            setSelectedStoryId(storiesList[0].id);
+          } else {
+            setSelectedStoryId(null);
+          }
+        } catch (err: any) {
+          console.warn("Firestore collection load failed:", err);
+          try {
+            handleFirestoreError(err, OperationType.LIST, "stories");
+          } catch (_) {}
+        }
+      };
+      fetchFirestoreStories();
+    } else {
+      // Unauthenticated / Guest fallback
+      try {
+        const stored = localStorage.getItem("mystoryai_stories");
+        if (stored) {
+          const parsed = JSON.parse(stored) as Story[];
+          if (parsed && parsed.length > 0) {
+            setSavedStories(parsed);
+            setSelectedStoryId(parsed[0].id);
+          } else {
+            setSavedStories([]);
+            setSelectedStoryId(null);
+          }
+        } else {
+          setSavedStories([]);
+          setSelectedStoryId(null);
+        }
+      } catch (e) {
+        console.error("Local storage load failed", e);
+      }
+    }
+  }, [user, authLoading]);
 
   // Fetch shared story if sharedId in URL
   useEffect(() => {
@@ -164,13 +236,47 @@ export default function App() {
     }
   }, []);
 
-  // Save stories to localstorage when they change
-  const saveStoriesToStorage = (updatedList: Story[]) => {
+  // Harmonized saves: writes to Firestore if logged in, otherwise localStorage
+  const saveStoriesToStorage = async (updatedList: Story[], singleChangedStory?: Story, deleteId?: string) => {
     setSavedStories(updatedList);
+    
+    // Guest fallback / off-line local replication
     try {
       localStorage.setItem("mystoryai_stories", JSON.stringify(updatedList));
     } catch (e) {
-      console.error("Local storage save failed", e);
+      console.error("Replicated local save failed:", e);
+    }
+
+    if (user) {
+      try {
+        if (deleteId) {
+          await deleteDoc(doc(db, "stories", deleteId));
+          console.log(`[Firestore] Story ${deleteId} removed.`);
+        } else if (singleChangedStory) {
+          const payload = { 
+            ...singleChangedStory, 
+            userId: user.uid,
+            isFavorite: singleChangedStory.isFavorite !== undefined ? singleChangedStory.isFavorite : false 
+          };
+          await setDoc(doc(db, "stories", singleChangedStory.id), payload);
+          console.log(`[Firestore] Story ${singleChangedStory.id} written.`);
+        } else {
+          // Bulk upsert backup
+          for (const s of updatedList) {
+            const payload = { 
+              ...s, 
+              userId: user.uid,
+              isFavorite: s.isFavorite !== undefined ? s.isFavorite : false 
+            };
+            await setDoc(doc(db, "stories", s.id), payload);
+          }
+        }
+      } catch (err: any) {
+        console.error("Firestore sync error:", err);
+        try {
+          handleFirestoreError(err, deleteId ? OperationType.DELETE : OperationType.WRITE, "stories");
+        } catch (_) {}
+      }
     }
   };
 
@@ -195,6 +301,17 @@ export default function App() {
     setSelectedTone(preset.tone);
     setSelectedAudience(preset.audience);
   };
+
+  // Handler to refresh writer suggestions with 3 fresh presets
+  const handleRefreshSuggestions = () => {
+    const shuffled = [...PRESET_PROMPTS].sort(() => Math.random() - 0.5);
+    setActiveSuggestions(shuffled.slice(0, 3));
+  };
+
+  // Initialize suggestions on mount
+  useEffect(() => {
+    handleRefreshSuggestions();
+  }, []);
 
   // Find selected story
   const currentStory = savedStories.find((s) => s.id === selectedStoryId) || null;
@@ -238,6 +355,8 @@ export default function App() {
         genre: selectedGenre,
         tone: selectedTone,
         audience: selectedAudience,
+        userId: user ? user.uid : "guest",
+        isFavorite: false,
         createdAt: new Date().toLocaleDateString("fr-FR", {
           day: "numeric",
           month: "long",
@@ -283,7 +402,7 @@ export default function App() {
 
       // Add to list and select it
       const updatedList = [newStory, ...savedStories];
-      saveStoriesToStorage(updatedList);
+      saveStoriesToStorage(updatedList, newStory);
       setSelectedStoryId(newStory.id);
 
     } catch (err: any) {
@@ -355,7 +474,8 @@ export default function App() {
         }
         return story;
       });
-      saveStoriesToStorage(finalStories);
+      const generatedImgStory = finalStories.find((s) => s.id === storyId);
+      saveStoriesToStorage(finalStories, generatedImgStory);
 
     } catch (err: any) {
       console.error("Image generation error", err);
@@ -429,7 +549,8 @@ export default function App() {
         return story;
       });
 
-      saveStoriesToStorage(updatedStories);
+      const refinedStory = updatedStories.find((s) => s.id === storyId);
+      saveStoriesToStorage(updatedStories, refinedStory);
       setEditingSectionId(null);
       setRefinementInstruction("");
 
@@ -466,7 +587,8 @@ export default function App() {
       return story;
     });
 
-    saveStoriesToStorage(updatedStories);
+    const updatedStoryItem = updatedStories.find((s) => s.id === storyId);
+    saveStoriesToStorage(updatedStories, updatedStoryItem);
     setEditingSectionId(null);
   };
 
@@ -476,11 +598,37 @@ export default function App() {
     if (window.confirm("Êtes-vous certain de vouloir archiver et supprimer définitivement ce récit ?")) {
       stopAudio();
       const updated = savedStories.filter((s) => s.id !== storyId);
-      saveStoriesToStorage(updated);
+      saveStoriesToStorage(updated, undefined, storyId);
       if (selectedStoryId === storyId) {
         setSelectedStoryId(updated.length > 0 ? updated[0].id : null);
       }
     }
+  };
+
+  // Toggle favorite state of a story
+  const handleToggleFavorite = (storyId: string) => {
+    const updated = savedStories.map((s) => {
+      if (s.id === storyId) {
+        const revised = { ...s, isFavorite: !s.isFavorite };
+        const nextList = savedStories.map(item => item.id === storyId ? revised : item);
+        saveStoriesToStorage(nextList, revised);
+        return revised;
+      }
+      return s;
+    });
+  };
+
+  // Quick rename from membership shelf
+  const handleRenameStory = (storyId: string, newTitle: string) => {
+    const updated = savedStories.map((s) => {
+      if (s.id === storyId) {
+        const revised = { ...s, title: newTitle };
+        const nextList = savedStories.map(item => item.id === storyId ? revised : item);
+        saveStoriesToStorage(nextList, revised);
+        return revised;
+      }
+      return s;
+    });
   };
 
   // Generate all 4 moment images sequentially under the selected style
@@ -1012,76 +1160,151 @@ export default function App() {
 
       {/* 1. Header Area with story bookcase selection */}
       <header className="sticky top-0 z-40 bg-black/60 backdrop-blur-md border-b border-white/10 py-3.5 px-4 sm:px-6">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           
-          <div className="flex items-center gap-3">
-            <div className="bg-indigo-600 text-white w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg italic shadow-lg shadow-indigo-500/20">
-              S
+          <div className="flex items-center justify-between w-full md:w-auto gap-4">
+            <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => setActiveTab("landing")}>
+              <div className="bg-indigo-600 text-white w-9 h-9 rounded-xl flex items-center justify-center font-bold text-base shadow-lg shadow-indigo-500/30">
+                S
+              </div>
+              <div>
+                <h1 className="text-lg font-serif font-black tracking-widest uppercase text-white flex items-center gap-1">
+                  My story <span className="text-indigo-500">AI</span>
+                </h1>
+                <p className="text-[9px] text-white/40 font-mono tracking-wider uppercase">
+                  Studio Littéraire Multimodal
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-light tracking-widest uppercase text-white flex items-center gap-1.5">
-                My story <span className="font-bold text-indigo-500">AI</span>
-              </h1>
-              <p className="text-[10px] sm:text-xs text-white/40 font-mono tracking-wider uppercase">
-                Studio Littéraire Multimodal
-              </p>
+
+            {/* Mobile layout themes / auth quickly */}
+            <div className="flex items-center gap-2 md:hidden">
+              <button
+                onClick={() => setIsDarkMode((prev) => !prev)}
+                className="p-2 bg-white/5 rounded-xl border border-white/10 text-white"
+              >
+                {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-400" />}
+              </button>
+
+              {user ? (
+                <button
+                  onClick={() => {
+                    stopAudio();
+                    signOut(auth);
+                    setSavedStories([]);
+                    setSelectedStoryId(null);
+                    setActiveTab("landing");
+                  }}
+                  className="p-2 bg-red-650 bg-red-650 bg-red-600/10 rounded-xl text-red-400 border border-red-500/20"
+                  title="Déconnexion"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              ) : (
+                <button
+                  onClick={() => setIsAuthModalOpen(true)}
+                  className="p-2 bg-indigo-600 rounded-xl text-white shadow-md"
+                  title="Se connecter"
+                >
+                  <LogIn className="w-4 h-4" />
+                </button>
+              )}
             </div>
           </div>
 
-          {/* Shelves Selection */}
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
-            {savedStories.length > 0 && (
-              <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-xl border border-white/10 w-full sm:w-auto">
-                <BookMarked className="w-4 h-4 text-indigo-400 shrink-0" />
-                <select
-                  value={selectedStoryId || ""}
-                  onChange={(e) => {
-                    stopAudio();
-                    setSelectedStoryId(e.target.value);
-                  }}
-                  className="bg-transparent text-xs font-medium text-white/80 focus:outline-none cursor-pointer pr-4 max-w-[160px] truncate"
-                >
-                  {savedStories.map((s) => (
-                    <option key={s.id} value={s.id} className="bg-[#121212] text-white">
-                      📖 {s.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+          {/* Navigation tabs */}
+          <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/10 select-none">
+            <button
+              onClick={() => setActiveTab("landing")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition ${
+                activeTab === "landing" ? "bg-indigo-600 text-white shadow" : "text-white/60 hover:text-white"
+              }`}
+            >
+              <Compass className="w-3.5 h-3.5" />
+              <span>Accueil</span>
+            </button>
 
-            {/* Theme Switcher */}
+            <button
+              onClick={() => {
+                if (!user) {
+                  setIsAuthModalOpen(true);
+                } else {
+                  setActiveTab("studio");
+                }
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition ${
+                activeTab === "studio" ? "bg-indigo-600 text-white shadow" : "text-white/60 hover:text-white"
+              }`}
+            >
+              <Wand2 className="w-3.5 h-3.5" />
+              <span>Studio</span>
+            </button>
+
+            {user && (
+              <button
+                onClick={() => setActiveTab("member")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition ${
+                  activeTab === "member" ? "bg-indigo-600 text-white shadow" : "text-white/60 hover:text-white"
+                }`}
+              >
+                <BookMarked className="w-3.5 h-3.5" />
+                <span>Bibliothèque</span>
+              </button>
+            )}
+          </div>
+
+          {/* Right actions: theme & authentication */}
+          <div className="hidden md:flex items-center gap-3">
+            {/* Theme switcher */}
             <button
               onClick={() => setIsDarkMode((prev) => !prev)}
-              className="flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-semibold px-3.5 py-2.5 rounded-xl transition duration-200 cursor-pointer w-full sm:w-auto"
-              title={isDarkMode ? "Passer en mode jour (Littéraire)" : "Passer en mode nuit"}
+              className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl border border-white/10 text-white/80 hover:text-white cursor-pointer transition"
+              title={isDarkMode ? "Passer au Mode Jour" : "Passer au Mode Nuit"}
             >
-              {isDarkMode ? (
-                <>
-                  <Sun className="w-4 h-4 text-amber-400" />
-                  <span>Mode Jour</span>
-                </>
-              ) : (
-                <>
-                  <Moon className="w-4 h-4 text-indigo-400" />
-                  <span>Mode Nuit</span>
-                </>
-              )}
+              {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-400" />}
             </button>
 
-            <button
-              id="new_story_btn"
-              onClick={() => {
-                stopAudio();
-                setSelectedStoryId(null);
-                setPrompt("");
-              }}
-              className="flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition duration-200 cursor-pointer shadow-lg shadow-indigo-600/20 w-full sm:w-auto"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Nouvelle Histoire</span>
-            </button>
+            <AnimatePresence mode="wait">
+              {user ? (
+                <motion.div 
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  className="flex items-center gap-2"
+                >
+                  <div className="bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white/80 flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5 text-indigo-400" />
+                    <span className="max-w-[120px] truncate">{user.email?.split("@")[0]}</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      stopAudio();
+                      signOut(auth);
+                      setSavedStories([]);
+                      setSelectedStoryId(null);
+                      setActiveTab("landing");
+                    }}
+                    className="flex items-center gap-1 bg-red-650 bg-red-600/10 hover:bg-red-500/20 border border-red-500/15 text-red-400 font-bold text-xs px-3.5 py-2 rounded-xl transition cursor-pointer"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Quitter</span>
+                  </button>
+                </motion.div>
+              ) : (
+                <motion.button
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  onClick={() => setIsAuthModalOpen(true)}
+                  className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-505 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl cursor-pointer shadow-lg shadow-indigo-600/25"
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>S'inscrire / Connexion</span>
+                </motion.button>
+              )}
+            </AnimatePresence>
           </div>
+
         </div>
       </header>
 
@@ -1269,6 +1492,56 @@ export default function App() {
           </div>
 
         </div>
+      ) : activeTab === "landing" ? (
+        <LandingPage
+          onStartWriting={() => {
+            if (!user) {
+              setIsAuthModalOpen(true);
+            } else {
+              setActiveTab("studio");
+            }
+          }}
+          onSelectPreset={(p) => {
+            if (!user) {
+              setIsAuthModalOpen(true);
+            } else {
+              selectPreset(p);
+              setActiveTab("studio");
+            }
+          }}
+          onOpenAuth={() => setIsAuthModalOpen(true)}
+          isAuthenticated={!!user}
+          userEmail={user ? user.email : null}
+          onGoToMemberArea={() => setActiveTab("member")}
+        />
+      ) : activeTab === "member" && user ? (
+        <MemberArea
+          savedStories={savedStories}
+          onSelectStory={(sid) => {
+            stopAudio();
+            setSelectedStoryId(sid);
+            setActiveTab("studio");
+          }}
+          onToggleFavorite={handleToggleFavorite}
+          onDeleteStory={(sid) => handleDeleteStory(sid, { stopPropagation: () => {} } as React.MouseEvent)}
+          onRenameStory={handleRenameStory}
+          onNewStory={() => {
+            stopAudio();
+            setSelectedStoryId(null);
+            setPrompt("");
+            setActiveTab("studio");
+          }}
+          onStartConfigureStory={(pr, ge, to, au) => {
+            stopAudio();
+            setSelectedStoryId(null);
+            setPrompt(pr);
+            setSelectedGenre(ge);
+            setSelectedTone(to);
+            setSelectedAudience(au);
+            setActiveTab("studio");
+          }}
+          userEmail={user.email}
+        />
       ) : (
         <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col lg:flex-row gap-8">
         {/* SIDE A: Setup Story or display Book Shelf */}
@@ -1281,19 +1554,30 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               className="glass p-5 rounded-2xl"
             >
-              <div className="flex items-center gap-2 mb-3">
-                <Sparkles className="w-5 h-5 text-indigo-400" />
-                <h3 className="font-serif font-bold text-white">Suggestions d'écrivain</h3>
+              <div className="flex items-center justify-between mb-3 gap-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-indigo-400 shrink-0" />
+                  <h3 className="font-serif font-bold text-sm text-white">Suggestions d'écrivain</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRefreshSuggestions}
+                  className="flex items-center gap-1.5 text-[10px] bg-white/5 hover:bg-white/10 hover:border-white/15 border border-white/5 text-slate-300 font-bold px-2.5 py-1 rounded-lg cursor-pointer transition active:scale-95 shrink-0"
+                  title="Obtenir de nouvelles suggestions d'histoires"
+                >
+                  <RefreshCw className="w-3 h-3 text-indigo-400" />
+                  <span>Rafraîchir</span>
+                </button>
               </div>
-              <p className="text-xs text-white/60 mb-4">
+              <p className="text-xs text-white/50 mb-4">
                 Inspirez-vous instantanément avec de magnifiques départs d'histoires :
               </p>
               <div className="grid grid-cols-1 gap-2.5">
-                {PRESET_PROMPTS.map((preset, idx) => (
+                {activeSuggestions.map((preset, idx) => (
                   <button
                     key={idx}
                     onClick={() => selectPreset(preset)}
-                    className="text-left bg-white/5 hover:bg-indigo-500/10 hover:border-indigo-500/40 border border-white/10 p-3 rounded-xl transition-all cursor-pointer group"
+                    className="text-left bg-white/5 hover:bg-indigo-500/10 hover:border-indigo-500/40 border border-white/10 p-3 rounded-xl transition-all cursor-pointer group animate-fade-in"
                   >
                     <div className="flex justify-between items-center mb-1">
                       <span className="font-serif font-bold text-xs text-white/90 group-hover:text-indigo-300">
@@ -2129,6 +2413,15 @@ export default function App() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* 4.6 AUTHENTICATION MODAL */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onSuccess={(email) => {
+          setActiveTab("member");
+        }}
+      />
 
       {/* 5. Footer Layout */}
       <footer className="mt-auto border-t border-white/10 bg-[#090909] py-10 px-4">
